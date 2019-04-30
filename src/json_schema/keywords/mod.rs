@@ -1,6 +1,6 @@
 use serde_json::{Value};
 use std::fmt;
-use std::rc;
+use std::sync::Arc;
 use std::collections;
 use std::any;
 
@@ -10,9 +10,9 @@ use super::validators;
 pub type KeywordResult = Result<Option<validators::BoxedValidator>, schema::SchemaError>;
 pub type KeywordPair = (Vec<&'static str>, Box<Keyword + 'static>);
 pub type KeywordPairs = Vec<KeywordPair>;
-pub type KeywordMap = collections::HashMap<&'static str, rc::Rc<KeywordConsumer>>;
+pub type KeywordMap = collections::HashMap<&'static str, Arc<KeywordConsumer>>;
 
-pub trait Keyword: Sync + any::Any {
+pub trait Keyword: Send + Sync + any::Any {
     fn compile(&self, &Value, &schema::WalkContext) -> KeywordResult;
 
     fn is_exclusive(&self) -> bool {
@@ -119,7 +119,7 @@ impl KeywordConsumer {
 pub fn decouple_keyword(keyword_pair: KeywordPair,
                         map: &mut KeywordMap) {
     let (keys, keyword) = keyword_pair;
-    let consumer = rc::Rc::new(KeywordConsumer { keys: keys.clone(), keyword: keyword });
+    let consumer = Arc::new(KeywordConsumer { keys: keys.clone(), keyword: keyword });
     for key in keys.iter() {
         map.insert(key, consumer.clone());
     }
